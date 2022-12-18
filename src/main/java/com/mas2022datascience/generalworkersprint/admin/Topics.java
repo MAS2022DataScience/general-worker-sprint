@@ -10,16 +10,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class Topics {
 
-  @Value(value = "${topic.tracab-01.name}")
+  @Value(value = "${topic.general-player-ball.name}")
   private String topicName1;
-  @Value(value = "${topic.tracab-01.partitions}")
+  @Value(value = "${topic.general-player-ball.partitions}")
   private Integer topicPartitions1;
-  @Value(value = "${topic.tracab-01.replication-factor}")
+  @Value(value = "${topic.general-player-ball.replication-factor}")
   private Integer topicReplicationFactor1;
 
-  // creates or alters the topic
+  // creates the topic
   @Bean
-  public NewTopic tracab01() {
+  public NewTopic general01() {
     return TopicBuilder.name(topicName1)
         .partitions(topicPartitions1)
         .replicas(topicReplicationFactor1)
@@ -27,16 +27,16 @@ public class Topics {
         .build();
   }
 
-  @Value(value = "${topic.tracab-02.name}")
+  @Value(value = "${topic.general-events.name}")
   private String topicName2;
-  @Value(value = "${topic.tracab-02.partitions}")
+  @Value(value = "${topic.general-events.partitions}")
   private Integer topicPartitions2;
-  @Value(value = "${topic.tracab-02.replication-factor}")
+  @Value(value = "${topic.general-events.replication-factor}")
   private Integer topicReplicationFactor2;
 
-  // creates or alters the topic
+  // creates the topic
   @Bean
-  public NewTopic tracab02() {
+  public NewTopic general02() {
     return TopicBuilder.name(topicName2)
         .partitions(topicPartitions2)
         .replicas(topicReplicationFactor2)

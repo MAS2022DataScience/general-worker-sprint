@@ -3,7 +3,7 @@ topic:
     name: general_player_ball
     replication-factor: 2
     partitions: 3
-  tracab-02:
+  general-events:
     name: general_events
     replication-factor: 2
     partitions: 3
