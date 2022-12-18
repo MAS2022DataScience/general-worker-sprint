@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.mas2022datascience</groupId>
-	<artifactId>spring-general-worker-sprint</artifactId>
+	<artifactId>general-worker-sprint</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>spring-general-worker-sprint</name>
-	<description>general worker (stream processing)</description>
+	<name>general-worker-sprint</name>
+	<description>general sprint worker (session window)</description>
 	<properties>
 		<java.version>17</java.version>
 		<avro.version>1.11.0</avro.version>
