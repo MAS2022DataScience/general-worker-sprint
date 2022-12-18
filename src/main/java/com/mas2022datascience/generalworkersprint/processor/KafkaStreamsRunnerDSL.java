@@ -1,4 +1,4 @@
-package com.mas2022datascience.springgeneralworkersprint.processor;
+package com.mas2022datascience.generalworkersprint.processor;
 
 import com.mas2022datascience.avro.v1.Frame;
 import com.mas2022datascience.avro.v1.Object;

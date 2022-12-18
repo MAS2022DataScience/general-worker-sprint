@@ -10,7 +10,7 @@ topic:
 
 spring:
   application:
-    name: "spring-general-worker-sprint"
+    name: "general-worker-sprint"
 
   kafka:
     bootstrap.servers:
