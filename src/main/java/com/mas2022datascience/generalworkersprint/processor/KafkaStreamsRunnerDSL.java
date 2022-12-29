@@ -1,55 +1,30 @@
 package com.mas2022datascience.generalworkersprint.processor;
 
-import static java.time.Instant.now;
-import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded;
-import static org.apache.kafka.streams.kstream.Suppressed.untilWindowCloses;
-
-import com.google.common.primitives.Bytes;
-import com.mas2022datascience.avro.v1.Frame;
-import com.mas2022datascience.avro.v1.Object;
 import com.mas2022datascience.avro.v1.PlayerBall;
 import com.mas2022datascience.avro.v1.Sprint;
 import com.mas2022datascience.avro.v1.Ticker;
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.streams.KeyValue;
+import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.kstream.Aggregator;
-import org.apache.kafka.streams.kstream.Consumed;
-import org.apache.kafka.streams.kstream.Grouped;
-import org.apache.kafka.streams.kstream.KGroupedStream;
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KTable;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.Merger;
-import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.SessionWindowedKStream;
-import org.apache.kafka.streams.kstream.SessionWindows;
-import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
-import org.apache.kafka.streams.kstream.Windowed;
+import org.apache.kafka.streams.kstream.*;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.apache.kafka.streams.state.SessionStore;
 import org.apache.kafka.streams.state.StoreBuilder;
 import org.apache.kafka.streams.state.Stores;
-import org.apache.kafka.streams.state.WindowStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.Map;
+
+import static org.apache.kafka.streams.kstream.Suppressed.BufferConfig.unbounded;
+import static org.apache.kafka.streams.kstream.Suppressed.untilWindowCloses;
 
 @Configuration
 @EnableKafkaStreams
@@ -139,11 +114,11 @@ public class KafkaStreamsRunnerDSL {
 //    int tick_count;
 //    int session_length_ms;
 
-    Aggregator<String, Long, Sprint> aggregator = (key, value, aggValue) -> {
-      aggValue.setVMin(Math.min(aggValue.getVMin(), value));
-      aggValue.setVMax(Math.max(aggValue.getVMax(), value));
-      aggValue.setAMin(Math.min(aggValue.getAMin(), value));
-      aggValue.setAMax(Math.max(aggValue.getAMax(), value));
+    Aggregator<String, PlayerBall, Sprint> aggregator = (key, value, aggValue) -> {
+      aggValue.setVMin(Math.min(aggValue.getVMin(), value.getVelocity()));
+      aggValue.setVMax(Math.max(aggValue.getVMax(), value.getVelocity()));
+      aggValue.setAMin(Math.min(aggValue.getAMin(), value.getAccelleration()));
+      aggValue.setAMax(Math.max(aggValue.getAMax(), value.getAccelleration()));
       return aggValue;
     };
 
@@ -180,8 +155,8 @@ public class KafkaStreamsRunnerDSL {
             Materialized.<String, Sprint, SessionStore<Bytes, byte[]>>as("sprint-store")
                 .withKeySerde(Serdes.String())
                 .withValueSerde(sprintSerde)
-        )
-        .suppress(untilWindowCloses(unbounded())); // suppress until window closes
+        );
+        //.suppress(untilWindowCloses(unbounded())); // suppress until window closes
         //.filter((k, v) -> (k.window().end() - k.window().start() > minSprintLength));
 //
 //    kTable.toStream()
