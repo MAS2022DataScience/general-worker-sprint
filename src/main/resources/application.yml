@@ -1,12 +1,20 @@
 topic:
   general-player-ball:
-    name: general_player_ball
+    name: general_01_player_ball
     replication-factor: 2
     partitions: 3
   general-events:
     name: general_events
     replication-factor: 2
     partitions: 3
+
+sprint:
+  parameter:
+    session-length: 1000 # [ms]
+    session-grace-time: 10000 # [ms]
+    velocity-threshold: 2 # [m/s]
+    acceleration-threshold: 0 # [m/s^2]
+    min-sprint-length: 1000 # [ms]
 
 spring:
   application:
@@ -27,14 +35,24 @@ spring:
         default.value.serde: io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde
         # This is the default: log, fail and stop processing records (stop stream)
         default.deserialization.exception.handler: org.apache.kafka.streams.errors.LogAndFailExceptionHandler
-        #auto-offset-reset: latest
+        auto-offset-reset: earliest
         #compression-type: lz4 #this shows up in KafkaStreamsConfiguration
         #state.cleanup.delay.ms: 600000
+        #default.timestamp.extractor: io.confluent.kafka.streams.serdes.avro.GenericAvroTimestampExtractor
+        #DEFAULT_TIMESTAMP_EXTRACTOR_CLASS_CONFIG
+        default:
+          timestamp:
+            extractor:
+              class:
+                config: PlayerBallEventTimestampExtractor.class.getName()
     properties:
-      bootstrap.servers:
-        - ${spring.kafka.bootstrap.servers[0]}
-        - ${spring.kafka.bootstrap.servers[1]}
-      schema.registry.url: "http://${DATAPLATFORM_IP}:8081"
+      bootstrap:
+        servers:
+          - ${spring.kafka.bootstrap.servers[0]}
+          - ${spring.kafka.bootstrap.servers[1]}
+      schema:
+        registry:
+          url: "http://${DATAPLATFORM_IP}:8081"
     # At application startup a missing topic on the broker will not fail the
     # application startup
     listener:
