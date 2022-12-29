@@ -155,8 +155,8 @@ public class KafkaStreamsRunnerDSL {
             Materialized.<String, Sprint, SessionStore<Bytes, byte[]>>as("sprint-store")
                 .withKeySerde(Serdes.String())
                 .withValueSerde(sprintSerde)
-        );
-        //.suppress(untilWindowCloses(unbounded())); // suppress until window closes
+        )
+        .suppress(untilWindowCloses(unbounded())); // suppress until window closes
         //.filter((k, v) -> (k.window().end() - k.window().start() > minSprintLength));
 //
 //    kTable.toStream()
