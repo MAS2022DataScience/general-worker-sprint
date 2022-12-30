@@ -3,8 +3,8 @@ topic:
     name: general_01_player_ball
     replication-factor: 2
     partitions: 3
-  general-events:
-    name: general_events
+  general-sprints:
+    name: general_sprints
     replication-factor: 2
     partitions: 3
 

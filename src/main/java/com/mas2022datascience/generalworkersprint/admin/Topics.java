@@ -27,11 +27,11 @@ public class Topics {
         .build();
   }
 
-  @Value(value = "${topic.general-events.name}")
+  @Value(value = "${topic.general-sprints.name}")
   private String topicName2;
-  @Value(value = "${topic.general-events.partitions}")
+  @Value(value = "${topic.general-sprints.partitions}")
   private Integer topicPartitions2;
-  @Value(value = "${topic.general-events.replication-factor}")
+  @Value(value = "${topic.general-sprints.replication-factor}")
   private Integer topicReplicationFactor2;
 
   // creates the topic
