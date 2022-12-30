@@ -2,7 +2,6 @@ package com.mas2022datascience.generalworkersprint.processor;
 
 import com.mas2022datascience.avro.v1.PlayerBall;
 import com.mas2022datascience.avro.v1.Sprint;
-import com.mas2022datascience.avro.v1.Ticker;
 import io.confluent.kafka.streams.serdes.avro.SpecificAvroSerde;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
@@ -50,9 +49,6 @@ public class KafkaStreamsRunnerDSL {
     final Serde<PlayerBall> playerBallSerde = new SpecificAvroSerde<>();
     playerBallSerde.configure(serdeConfig, false); // `false` for record values
 
-    final Serde<Ticker> tickerSerde = new SpecificAvroSerde<>();
-    tickerSerde.configure(serdeConfig, false); // `false` for record values
-
     final Serde<Sprint> sprintSerde = new SpecificAvroSerde<>();
     sprintSerde.configure(serdeConfig, false); // `false` for record values
 
@@ -61,8 +57,8 @@ public class KafkaStreamsRunnerDSL {
             Serdes.String(), playerBallSerde);
     kStreamBuilder.addStateStore(sprintStore);
 
-    SessionWindows sessionWindow = SessionWindows.with(
-        Duration.ofMillis(sessionLength)).grace(Duration.ofMillis(sessionGraceTime));
+    SessionWindows sessionWindow = SessionWindows.ofInactivityGapAndGrace(
+        Duration.ofMillis(sessionLength), Duration.ofMillis(sessionGraceTime));
 
     KStream<String, PlayerBall> stream = kStreamBuilder.stream(topicIn,
         Consumed.with(Serdes.String(), playerBallSerde)
@@ -89,20 +85,18 @@ public class KafkaStreamsRunnerDSL {
       return aggValue;
     };
 
-    Merger<String, Sprint> merger = (key, value1, value2) -> {
-      return Sprint.newBuilder()
-          .setTs(value1.getTs().isBefore(value2.getTs()) ? value1.getTs() : value2.getTs())
-          .setPlayerId(value1.getPlayerId())
-          .setVMax(Math.max(value1.getVMax(), value2.getVMax()))
-          .setVMin(Math.min(value1.getVMin(), value2.getVMin()))
-          .setAMax(Math.max(value1.getAMax(), value2.getAMax()))
-          .setAMin(Math.min(value1.getAMin(), value2.getAMin()))
-          .setSessionStartTs(value1.getSessionStartTs())
-          .setSessionEndTs(value1.getSessionEndTs())
-          .setTickCount(value2.getTickCount())
-          .setSessionLengthMs(value1.getSessionLengthMs())
-          .build();
-    };
+    Merger<String, Sprint> merger = (key, value1, value2) -> Sprint.newBuilder()
+        .setTs(value1.getTs().isBefore(value2.getTs()) ? value1.getTs() : value2.getTs())
+        .setPlayerId(value1.getPlayerId())
+        .setVMax(Math.max(value1.getVMax(), value2.getVMax()))
+        .setVMin(Math.min(value1.getVMin(), value2.getVMin()))
+        .setAMax(Math.max(value1.getAMax(), value2.getAMax()))
+        .setAMin(Math.min(value1.getAMin(), value2.getAMin()))
+        .setSessionStartTs(value1.getSessionStartTs())
+        .setSessionEndTs(value1.getSessionEndTs())
+        .setTickCount(value2.getTickCount())
+        .setSessionLengthMs(value1.getSessionLengthMs())
+        .build();
 
     KTable<Windowed<String>, Sprint> sumOfValues = grouped
         .windowedBy(sessionWindow)
@@ -141,7 +135,7 @@ public class KafkaStreamsRunnerDSL {
     // publish result
     sumOfValues
         .toStream()
-        .selectKey((key, value) -> key.key())
+        .selectKey((key, value) -> key.key()) // remove window from key
         .to(topicOut);
 
     return stream;
