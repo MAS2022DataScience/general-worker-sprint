@@ -32,7 +32,7 @@ public class KafkaStreamsRunnerDSL {
 
   @Value(value = "${spring.kafka.properties.schema.registry.url}") private String schemaRegistry;
   @Value(value = "${topic.general-player-ball.name}") private String topicIn;
-  @Value(value = "${topic.general-events.name}") private String topicOut;
+  @Value(value = "${topic.general-sprints.name}") private String topicOut;
 
   @Value(value = "${sprint.parameter.session-length}") private long sessionLength;
   @Value(value = "${sprint.parameter.session-grace-time}") private long sessionGraceTime;
@@ -68,33 +68,6 @@ public class KafkaStreamsRunnerDSL {
         Consumed.with(Serdes.String(), playerBallSerde)
             .withTimestampExtractor(new PlayerBallEventTimestampExtractor()));
 
-//    {
-//      "ts": "2019-06-05T18:46:49.483Z", --> instant
-//        "id": "250085369",
-//        "x": 1605,
-//        "y": -517,
-//        "z": 0,
-//        "velocity": 1.8027756377319946,
-//        "distance": 0.07211102550927978
-//    }
-
-//    SELECT objectId,
-//    max(id) AS OBJECT,
-//    round(min(velocity),4) AS Vmin,
-//    round(max(velocity),4) AS Vmax,
-//    round(min(accelleration),4) AS Amin,
-//    round(max(accelleration),4) AS Amax,
-//    TIMESTAMPTOSTRING(WINDOWSTART,'yyyy-MM-dd HH:mm:ss.SSS', 'UTC') AS SESSION_START_TS,
-//    TIMESTAMPTOSTRING(WINDOWEND,'yyyy-MM-dd HH:mm:ss.SSS', 'UTC')   AS SESSION_END_TS,
-//    COUNT(*)                                                    AS TICK_COUNT,
-//    WINDOWEND - WINDOWSTART                                     AS SESSION_LENGTH_MS
-//    FROM sPlayerBallV01
-//    WINDOW SESSION (1000 MILLISECONDS)
-//    WHERE id = '1905363' and velocity > 2 and accelleration > 0
-//    GROUP BY objectId
-//    EMIT FINAL
-//    LIMIT 40;
-
     KGroupedStream<String, PlayerBall> grouped = stream
         .filter((k, v) -> {
           if (v.getVelocity() == null || v.getAccelleration() == null) return false;
@@ -102,32 +75,32 @@ public class KafkaStreamsRunnerDSL {
         })
         .groupByKey(Grouped.with(Serdes.String(), playerBallSerde));
 
-
-//    timestamp_ms ts;
-//    string player_id;
-//    double v_min;
-//    double v_max;
-//    double a_min;
-//    double a_max;
-//    string  session_start_ts;
-//    string  session_end_ts;
-//    int tick_count;
-//    int session_length_ms;
-
     Aggregator<String, PlayerBall, Sprint> aggregator = (key, value, aggValue) -> {
+      aggValue.setTs(value.getTs());
+      aggValue.setPlayerId(value.getId());
       aggValue.setVMin(Math.min(aggValue.getVMin(), value.getVelocity()));
       aggValue.setVMax(Math.max(aggValue.getVMax(), value.getVelocity()));
       aggValue.setAMin(Math.min(aggValue.getAMin(), value.getAccelleration()));
       aggValue.setAMax(Math.max(aggValue.getAMax(), value.getAccelleration()));
+      aggValue.setSessionStartTs(aggValue.getSessionStartTs());
+      aggValue.setSessionEndTs(aggValue.getSessionStartTs());
+      aggValue.setTickCount(aggValue.getTickCount()+1);
+      aggValue.setSessionLengthMs(aggValue.getSessionLengthMs());
       return aggValue;
     };
 
     Merger<String, Sprint> merger = (key, value1, value2) -> {
       return Sprint.newBuilder()
+          .setTs(value1.getTs().isBefore(value2.getTs()) ? value1.getTs() : value2.getTs())
+          .setPlayerId(value1.getPlayerId())
           .setVMax(Math.max(value1.getVMax(), value2.getVMax()))
           .setVMin(Math.min(value1.getVMin(), value2.getVMin()))
           .setAMax(Math.max(value1.getAMax(), value2.getAMax()))
           .setAMin(Math.min(value1.getAMin(), value2.getAMin()))
+          .setSessionStartTs(value1.getSessionStartTs())
+          .setSessionEndTs(value1.getSessionEndTs())
+          .setTickCount(value2.getTickCount())
+          .setSessionLengthMs(value1.getSessionLengthMs())
           .build();
     };
 
@@ -136,14 +109,14 @@ public class KafkaStreamsRunnerDSL {
         .aggregate(
             // initializer
             () -> Sprint.newBuilder()
-                .setTs(Instant.now())
+                .setTs(Instant.ofEpochMilli(Long.MAX_VALUE))
                 .setPlayerId("")
                 .setVMin(Long.MAX_VALUE)
                 .setVMax(Long.MIN_VALUE)
                 .setAMin(Long.MAX_VALUE)
                 .setAMax(Long.MIN_VALUE)
-                .setSessionStartTs("")
-                .setSessionEndTs("")
+                .setSessionStartTs(Instant.ofEpochMilli(Long.MAX_VALUE).toString())
+                .setSessionEndTs(Instant.ofEpochMilli(Long.MIN_VALUE).toString())
                 .setTickCount(0)
                 .setSessionLengthMs(0)
                 .build(),
@@ -156,16 +129,20 @@ public class KafkaStreamsRunnerDSL {
                 .withKeySerde(Serdes.String())
                 .withValueSerde(sprintSerde)
         )
-        .suppress(untilWindowCloses(unbounded())); // suppress until window closes
-        //.filter((k, v) -> (k.window().end() - k.window().start() > minSprintLength));
-//
-//    kTable.toStream()
-//        .foreach((k,v) -> {
-//      System.out.println("Key: " + k.key() + " Window: " + Instant.ofEpochMilli(k.window().start()).atOffset(ZoneOffset.UTC) + " - " + Instant.ofEpochMilli(k.window().end()).atOffset(ZoneOffset.UTC) + " Count: " + v + " Length: " + (k.window().end()-k.window().start()));
-//    });
+        .suppress(untilWindowCloses(unbounded())) // suppress until window closes
+        .mapValues((k, v) -> {
+          v.setSessionStartTs(Instant.ofEpochMilli(k.window().start()).toString());
+          v.setSessionEndTs(Instant.ofEpochMilli(k.window().end()).toString());
+          v.setSessionLengthMs(k.window().end() - k.window().start());
+          return v;
+        })
+        .filter((k, v) -> (k.window().end() - k.window().start() > minSprintLength));
 
     // publish result
-//    sprintStream.to(topicOut);
+    sumOfValues
+        .toStream()
+        .selectKey((key, value) -> key.key())
+        .to(topicOut);
 
     return stream;
 
