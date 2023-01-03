@@ -74,6 +74,7 @@ public class KafkaStreamsRunnerDSL {
     Aggregator<String, PlayerBall, Sprint> aggregator = (key, value, aggValue) -> {
       aggValue.setTs(value.getTs());
       aggValue.setPlayerId(value.getId());
+      aggValue.setMatchId(value.getMatchId());
       aggValue.setVMin(Math.min(aggValue.getVMin(), value.getVelocity()));
       aggValue.setVMax(Math.max(aggValue.getVMax(), value.getVelocity()));
       aggValue.setAMin(Math.min(aggValue.getAMin(), value.getAccelleration()));
@@ -88,6 +89,7 @@ public class KafkaStreamsRunnerDSL {
     Merger<String, Sprint> merger = (key, value1, value2) -> Sprint.newBuilder()
         .setTs(value1.getTs().isBefore(value2.getTs()) ? value1.getTs() : value2.getTs())
         .setPlayerId(value1.getPlayerId())
+        .setMatchId(value1.getMatchId())
         .setVMax(Math.max(value1.getVMax(), value2.getVMax()))
         .setVMin(Math.min(value1.getVMin(), value2.getVMin()))
         .setAMax(Math.max(value1.getAMax(), value2.getAMax()))
@@ -105,6 +107,7 @@ public class KafkaStreamsRunnerDSL {
             () -> Sprint.newBuilder()
                 .setTs(Instant.ofEpochMilli(Long.MAX_VALUE))
                 .setPlayerId("")
+                .setMatchId("")
                 .setVMin(Long.MAX_VALUE)
                 .setVMax(Long.MIN_VALUE)
                 .setAMin(Long.MAX_VALUE)
@@ -135,6 +138,7 @@ public class KafkaStreamsRunnerDSL {
     // publish result
     sumOfValues
         .toStream()
+        .filter((k, v) -> !(v.getPlayerId().equals("0"))) // filter out the ball
         .selectKey((key, value) -> key.key()) // remove window from key
         .to(topicOut);
 
