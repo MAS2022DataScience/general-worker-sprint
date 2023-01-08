@@ -16,6 +16,13 @@ sprint:
     acceleration-threshold: 0 # [m/s^2]
     min-sprint-length: 1000 # [ms]
 
+mva: # y = -.23 * x + 5.99
+  slope: -0.23
+  intercept: 5.99
+  vipd: 8.33 # [m/s]
+  mva-percent-threshold: 75 # [%]
+  vipd-percent-threshold: 40 # [%]
+
 spring:
   application:
     name: "general-worker-sprint"

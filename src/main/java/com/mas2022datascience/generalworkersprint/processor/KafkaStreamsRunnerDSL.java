@@ -33,11 +33,20 @@ public class KafkaStreamsRunnerDSL {
   @Value(value = "${topic.general-player-ball.name}") private String topicIn;
   @Value(value = "${topic.general-sprints.name}") private String topicOut;
 
+  // Windowing
   @Value(value = "${sprint.parameter.session-length}") private long sessionLength;
   @Value(value = "${sprint.parameter.session-grace-time}") private long sessionGraceTime;
   @Value(value = "${sprint.parameter.velocity-threshold}") private long velocityThreshold;
   @Value(value = "${sprint.parameter.acceleration-threshold}") private long accelerationThreshold;
   @Value(value = "${sprint.parameter.min-sprint-length}") private long minSprintLength;
+
+  // MVA
+  @Value(value = "${mva.slope}") private double slope;
+  @Value(value = "${mva.intercept}") private double intercept;
+  @Value(value = "${mva.vipd}") private double vipd;
+
+  @Value(value = "${mva.vipd-percent-threshold}") private double vipdPercentThreshold;
+  @Value(value = "${mva.mva-percent-threshold}") private double mvaPercentThreshold;
 
   @Bean
   public KStream<String, PlayerBall> kStream(StreamsBuilder kStreamBuilder) {
@@ -140,6 +149,30 @@ public class KafkaStreamsRunnerDSL {
         .toStream()
         .filter((k, v) -> !(v.getPlayerId().equals("0"))) // filter out the ball
         .selectKey((key, value) -> key.key()) // remove window from key
+        .mapValues(v -> {
+          double mva = slope * v.getVMin() + intercept;
+          double vipdPercent = 100 / vipd * v.getVMin();
+          v.setMvaPercent(100 / mva * v.getAMax());
+          // sprint classification
+          if (v.getMvaPercent() < mvaPercentThreshold) {
+            if (vipdPercent < vipdPercentThreshold) {
+              // Joggen
+              v.setType(SprintTypes.JOG.getAbbreviation());
+            } else {
+              // Steigerungslauf
+              v.setType(SprintTypes.INCREMENTALRUN.getAbbreviation());
+            }
+          } else {
+            if (vipdPercent < vipdPercentThreshold) {
+              // Kurze Beschleunigung
+              v.setType(SprintTypes.SHORTACCELERATION.getAbbreviation());
+            } else {
+              // Sprint
+              v.setType(SprintTypes.SPRINT.getAbbreviation());
+            }
+          }
+          return v;
+        })
         .to(topicOut);
 
     return stream;
